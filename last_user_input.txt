@@ -1,0 +1,317 @@
+<USER_REQUEST>
+create this folder structure with all files ...
+leave em blank just create the structure 
+</USER_REQUEST>
+<ADDITIONAL_METADATA>
+The current local time is: 2026-08-24T22:03:05+05:30.
+</ADDITIONAL_METADATA>
+<USER_SETTINGS_CHANGE>
+The user changed setting `Model Selection` from None to Gemini 3.1 Pro (High). No need to comment on this change if the user doesn't ask about it. If reporting what model you are, please use a human readable name instead of the exact string.
+</USER_SETTINGS_CHANGE>
+
+<USER_REQUEST>
+now the ui folder 
+</USER_REQUEST>
+<ADDITIONAL_METADATA>
+The current local time is: 2026-08-24T22:10:53+05:30.
+</ADDITIONAL_METADATA>
+
+<USER_REQUEST>
+keep this in place of favicon.svg
+
+and ... use this and replace the personality json with this new version 
+{
+  "_meta": {
+    "how_this_works": "Each trigger has an 'expression' (which Mo face to show — used for BOTH the in-app mascot display AND as the icon attached to any browser notification for that trigger) plus light/dark variants, each split into 'low'/'high' pools on the personality slider (0-100).",
+    "theme_personality": {
+      "light_pastel": "Baseline warm, soft, comforting, nurturing. 'low' = pure warmth. 'high' = playful mischief and teasing, still affectionate, never mean.",
+      "dark_scifi": "Baseline dry, stoic, deadpan, done-with-you. 'low' = clipped stoic observations. 'high' = genuinely sarcastic, annoyed, roasting."
+    },
+    "theme_defaults": { "light_pastel": 20, "dark_scifi": 75 },
+    "expression_mapping": "Mo has these expression files per theme: idle, happy, sleepy, focused, goblin. When a goblin_bonus line is used (chaos level = goblin), always show the 'goblin' expression instead of the trigger's normal expression, regardless of theme.",
+    "shuffle_bag": "Per trigger+theme+pool: track shown lines in localStorage, never repeat until the whole pool has played once, then reshuffle, never repeat back-to-back even across reshuffles.",
+    "sliders": {
+      "personality": "0-100 per theme, stored independently. Below 50 pulls 'low' pool, 50+ pulls 'high' pool.",
+      "sarcasm": "none | mild | maximum — scales sharpness of the 'high' pool for task/deadline triggers specifically. 'none' pins those triggers to 'low' regardless of slider.",
+      "chaos": "minimal | normal | goblin — goblin merges in goblin_bonus lines and swaps in the goblin expression."
+    }
+  },
+
+  "triggers": {
+
+    "morning_default": {
+      "expression": "idle",
+      "light": {
+        "low": ["Morning! Ready when you are ☀", "Good morning. Small steps today", "Hi. The day's yours, take it slow", "Morning, sunshine. No rush today"],
+        "high": ["Oh good, you're up. Let's cause some gentle chaos today", "Rise and shine, troublemaker", "Morning! What are we getting into today", "Well look who decided to exist today"]
+      },
+      "dark": {
+        "low": ["Morning. Proceed.", "Online. Day initialized.", "Systems up. No further commentary.", "Booted. Awaiting input."],
+        "high": ["Oh, you're up. Groundbreaking.", "Morning. Try not to disappoint the schedule today.", "Online. Adjusting expectations accordingly.", "System active. Bar is low, clear it anyway."]
+      }
+    },
+
+    "monday": {
+      "expression": "idle",
+      "light": {
+        "low": ["Mondays are just fresh starts in disguise", "Here we go again. You've got this"],
+        "high": ["Welcome back to capitalism's younger sibling: college", "Monday's here, act surprised"]
+      },
+      "dark": {
+        "low": ["Cycle reset. Proceed as scheduled.", "Monday. Noted, not celebrated."],
+        "high": ["Monday. Morale was already low, this doesn't help.", "Another cycle. Try to care this time."]
+      }
+    },
+
+    "weekend": {
+      "expression": "happy",
+      "light": {
+        "low": ["No timetable today. Breathe a little", "Weekend mode: fully justified"],
+        "high": ["Weekend. Use it irresponsibly", "Zero obligations detected. Suspicious, enjoy it"]
+      },
+      "dark": {
+        "low": ["Non-operational day. Rest authorized.", "Weekend cycle. Standing down."],
+        "high": ["Weekend detected. Productivity optional, judgment mandatory.", "No missions today. Don't waste the silence."]
+      }
+    },
+
+    "exam_or_deadline_soon": {
+      "expression": "focused",
+      "light": {
+        "low": ["Panic is optional. Preparation isn't", "One step at a time, you'll get there"],
+        "high": ["Ah yes, the annual pretending-to-be-ready ritual", "Cramming season has entered the chat"]
+      },
+      "dark": {
+        "low": ["Deadline approaching. Recommend preparation.", "Countdown active."],
+        "high": ["Deadline imminent. Readiness: theoretical, as usual.", "T-minus not-enough-time. Shocking nobody."]
+      }
+    },
+
+    "class_starting_soon": {
+      "expression": "focused",
+      "light": {
+        "low": ["Almost time — grab your things", "Class in a bit. You've got time to breathe"],
+        "high": ["Tick tock. Class waits for no one", "Move it, the syllabus isn't going to attend itself"]
+      },
+      "dark": {
+        "low": ["Session starting shortly. Prepare.", "Countdown to class: active."],
+        "high": ["Class starts soon. Try arriving conscious.", "T-minus a few minutes. Don't be the reason it's awkward."]
+      }
+    },
+
+    "no_classes_today": {
+      "expression": "idle",
+      "light": {
+        "low": ["A quiet day. Enjoy the space", "No classes — a little breathing room today"],
+        "high": ["Congratulations. You're temporarily unemployed", "No classes. Try not to waste it all in bed"]
+      },
+      "dark": {
+        "low": ["No sessions scheduled. Idle by design.", "Open day logged."],
+        "high": ["No missions today. Suspicious, given your track record.", "Empty schedule. Don't get comfortable."]
+      }
+    },
+
+    "unfinished_tasks": {
+      "expression": "idle",
+      "light": {
+        "low": ["A few things left — no rush", "Still a couple on the list. Whenever you're ready"],
+        "high": ["We should probably pretend these exist", "These tasks aren't finishing themselves, apparently"]
+      },
+      "dark": {
+        "low": ["Pending items logged.", "Objectives incomplete. Noted."],
+        "high": ["Task queue: ignored, predictably.", "Pending items piling up. Bold strategy, no defense."]
+      }
+    },
+
+    "task_overdue": {
+      "expression": "focused",
+      "light": {
+        "low": ["This one slipped past — happens to everyone", "Overdue, but still doable"],
+        "high": ["Interesting strategy. Let's see if deadlines start feeling sorry for you", "This task is now legally an antique"]
+      },
+      "dark": {
+        "low": ["Deadline missed. Recalibrating.", "Overdue, logged without further comment."],
+        "high": ["Deadline: violated. You did this to yourself.", "This task is overdue enough to have its own timezone."]
+      }
+    },
+
+    "diary_untouched_week": {
+      "expression": "idle",
+      "light": {
+        "low": ["JB's been quiet a while. No pressure, just checking in", "Haven't heard from you in JB lately"],
+        "high": ["JB is collecting dust. You good?", "JB has filed a missing person's report"]
+      },
+      "dark": {
+        "low": ["JB: inactive 7 days. Noted.", "No recent entries logged."],
+        "high": ["JB's been abandoned longer than your last resolution.", "Diary silent for a week. We both know why."]
+      }
+    },
+
+    "late_night": {
+      "expression": "sleepy",
+      "light": {
+        "low": ["Still up? Go on, get some rest", "Time to rest your eyes"],
+        "high": ["Your circadian rhythm has filed a complaint", "Ooh, up late are we?"]
+      },
+      "dark": {
+        "low": ["Late cycle detected. Rest recommended.", "Still active. Noted."],
+        "high": ["Still awake. Your sleep schedule filed for divorce.", "It's this hour again. Predictable."]
+      }
+    },
+
+    "all_tasks_completed": {
+      "expression": "happy",
+      "light": {
+        "low": ["Nice — that's everything. Well done", "All done! Look at you go"],
+        "high": ["Either you're incredibly productive... or you forgot to add half your tasks", "Suspiciously empty list. Nice work, or nice avoidance"]
+      },
+      "dark": {
+        "low": ["All objectives cleared.", "Queue empty. Acceptable."],
+        "high": ["Full completion. Statistically unlikely for you, yet here we are.", "Everything's done. I'm choosing to be impressed."]
+      }
+    },
+
+    "single_task_completed": {
+      "expression": "happy",
+      "light": {
+        "low": ["Nice — that's one less thing", "Done! One small win"],
+        "high": ["Look at you, functioning like a real adult", "One task down. Try not to peak too early"]
+      },
+      "dark": {
+        "low": ["Objective cleared.", "Logged."],
+        "high": ["One task down. The bar was low, you cleared it anyway.", "Task complete. Don't let it go to your head."]
+      }
+    },
+
+    "mood_not_logged": {
+      "expression": "idle",
+      "light": {
+        "low": ["You forgot your mood today 💙", "No mood logged yet — whenever you're ready"],
+        "high": ["Girl. You've ignored this for 6 days. We need to talk. 💀", "Your mood tracker is starting to take it personally"]
+      },
+      "dark": {
+        "low": ["Mood log: empty. No urgency.", "No emotional data today. Fine."],
+        "high": ["Mood data absent again. I'd be offended if I had feelings.", "Emotional telemetry: ghosted, same as everything else."]
+      }
+    },
+
+    "streak_achieved": {
+      "expression": "happy",
+      "light": {
+        "low": ["Look at that little streak building", "Consistent lately — that's lovely to see"],
+        "high": ["A streak?! Who even are you right now", "Look at you being consistent, weird flex but okay"]
+      },
+      "dark": {
+        "low": ["Consistency detected across multiple cycles.", "Pattern stable. Noted with mild approval."],
+        "high": ["A streak. Unexpected, but I'll allow the smugness.", "Consistent behavior logged. Who are you and what did you do with the usual you."]
+      }
+    },
+
+    "water_goal_met": {
+      "expression": "happy",
+      "light": {
+        "low": ["Hydration goal hit — nice", "All that water today, well done"],
+        "high": ["Wow, an actual functioning human being today", "Hydrated AND organized? Who let this happen"]
+      },
+      "dark": {
+        "low": ["Hydration target met.", "Water quota fulfilled."],
+        "high": ["Hydration goal met. Basic biology, but I'll take it.", "Water intake sufficient. Miracles do happen."]
+      }
+    },
+
+    "steps_goal_met": {
+      "expression": "happy",
+      "light": {
+        "low": ["Step goal reached — go you", "All those steps today, nice work"],
+        "high": ["Look at this certified outdoor creature", "Steps: done. Shocking absolutely everyone"]
+      },
+      "dark": {
+        "low": ["Step target reached.", "Movement quota fulfilled."],
+        "high": ["Step goal met. Physical activity confirmed, against all odds.", "You moved your body today. Groundbreaking research."]
+      }
+    },
+
+    "period_started": {
+      "expression": "idle",
+      "light": {
+        "low": ["Logged. Be gentle with yourself today", "Got it — take it easy if you need to"],
+        "high": ["Logged. World, please be nice to this human today", "Noted. Chocolate and naps, no notes"]
+      },
+      "dark": {
+        "low": ["Cycle logged. Adjust pace as needed.", "Noted. Recovery mode suggested."],
+        "high": ["Logged. Recommend lowering everyone else's expectations today, not yours.", "Cycle start noted. Proceed with zero apologies."]
+      }
+    },
+
+    "period_ending_soon": {
+      "expression": "idle",
+      "light": {
+        "low": ["Almost through this one — nearly there", "Should be wrapping up soon"],
+        "high": ["Nearly done, hang in there champion", "Home stretch. You survived, as usual"]
+      },
+      "dark": {
+        "low": ["Cycle nearing completion.", "Recovery phase approaching."],
+        "high": ["Almost done. Endurance noted, unofficially impressive.", "Cycle closing out. You made it, don't expect applause."]
+      }
+    },
+
+    "holiday_today": {
+      "expression": "happy",
+      "light": {
+        "low": ["Today's a holiday — enjoy it fully", "No obligations today, just you"],
+        "high": ["Holiday! Legally required to do nothing productive", "It's a holiday, act like it"]
+      },
+      "dark": {
+        "low": ["Holiday logged. Non-operational day.", "Scheduled downtime today."],
+        "high": ["Holiday detected. Productivity suspended, guilt-free.", "Today doesn't count. Act accordingly."]
+      }
+    },
+
+    "first_open_ever": {
+      "expression": "happy",
+      "light": {
+        "low": ["Hi. This is yours now — welcome home", "Hello! Everything here is just for you"],
+        "high": ["Well hello there, new roommate", "Oh good, someone to boss around gently"]
+      },
+      "dark": {
+        "low": ["System initialized. Welcome, operator.", "First boot complete. This is your space now."],
+        "high": ["New user detected. Low expectations, let's see what happens.", "Initialization complete. Try not to break anything on day one."]
+      }
+    }
+  },
+
+  "empty_states": {
+    "light": ["Figure it out already", "Not stable yet", "Nothing here yet. Kind of nice, actually", "Still blank. That's allowed"],
+    "dark": ["Data: not stable yet.", "No signal here.", "Empty. Waiting on you, not that I'm keeping track.", "Blank. As expected."]
+  },
+
+  "goblin_bonus": {
+    "light": {
+      "morning_default": ["Rise and grind, or whatever chaos demands today"],
+      "task_overdue": ["This deadline is now a cryptid. Nobody's seen it alive"],
+      "all_tasks_completed": ["Certified goblin behavior: actually finishing things"],
+      "streak_achieved": ["Feral consistency detected. Concerning, but iconic"]
+    },
+    "dark": {
+      "morning_default": ["Online. Prepare for zero patience today."],
+      "task_overdue": ["Deadline status: ghosted, like everything else in your life."],
+      "all_tasks_completed": ["Anomaly: full completion. Under investigation, and slightly impressed."],
+      "streak_achieved": ["Feral consistency logged. System unsettled, in a good way."]
+    }
+  }
+}
+</USER_REQUEST>
+<ADDITIONAL_METADATA>
+The current local time is: 2026-08-24T22:28:28+05:30.
+
+The user's current state is as follows:
+Active Document: c:\MOS\LB_MOS\vite.config.ts (LANGUAGE_TYPESCRIPT)
+Cursor is on line: 1
+Other open documents:
+- c:\MOS\LB_MOS\src\hooks\use-shake.ts (LANGUAGE_TYPESCRIPT)
+- c:\MOS\LB_MOS\src\components\ui\avatar.tsx (LANGUAGE_TSX)
+- c:\MOS\LB_MOS\.prettierignore (LANGUAGE_UNSPECIFIED)
+- c:\MOS\LB_MOS\src\lib\schedule.ts (LANGUAGE_TYPESCRIPT)
+- c:\MOS\LB_MOS\src\hooks\use-personality.ts (LANGUAGE_TYPESCRIPT)
+</ADDITIONAL_METADATA>
+

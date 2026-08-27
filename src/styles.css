@@ -1,0 +1,154 @@
+@import "tailwindcss" source(none);
+@source "../src";
+@import "tw-animate-css";
+
+@custom-variant dark (&:is(.dark *));
+
+@theme inline {
+  --radius-sm: calc(var(--radius) - 4px);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) + 4px);
+  --radius-2xl: calc(var(--radius) + 8px);
+  --radius-3xl: calc(var(--radius) + 12px);
+  --radius-4xl: calc(var(--radius) + 16px);
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-destructive-foreground: var(--destructive-foreground);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+  --color-glass: var(--glass);
+  --color-glass-border: var(--glass-border);
+  --color-mascot-body: var(--mascot-body);
+  --color-mascot-outline: var(--mascot-outline);
+  --color-tint-1: var(--tint-1);
+  --color-tint-2: var(--tint-2);
+  --color-tint-3: var(--tint-3);
+  --font-display: var(--font-display-family);
+  --font-sans: var(--font-body-family);
+}
+
+/* ---------------- Pastel (light) ---------------- */
+:root {
+  --radius: 1.25rem;
+  --font-display-family: "Baloo 2", "Comic Sans MS", cursive;
+  --font-body-family: "Nunito", ui-sans-serif, system-ui, sans-serif;
+
+  --background: oklch(0.96 0.028 84);
+  --foreground: oklch(0.34 0.045 45);
+  --card: oklch(0.995 0.008 90 / 55%);
+  --card-foreground: oklch(0.34 0.045 45);
+  --popover: oklch(0.98 0.012 88);
+  --popover-foreground: oklch(0.34 0.045 45);
+  --primary: oklch(0.75 0.11 58);
+  --primary-foreground: oklch(0.99 0.01 90);
+  --secondary: oklch(0.92 0.045 20);
+  --secondary-foreground: oklch(0.38 0.06 30);
+  --muted: oklch(0.94 0.022 84);
+  --muted-foreground: oklch(0.56 0.04 55);
+  --accent: oklch(0.88 0.07 340);
+  --accent-foreground: oklch(0.38 0.07 340);
+  --destructive: oklch(0.63 0.16 25);
+  --destructive-foreground: oklch(0.99 0.01 90);
+  --border: oklch(0.76 0.1 60 / 45%);
+  --input: oklch(0.76 0.1 60 / 40%);
+  --ring: oklch(0.75 0.11 58);
+
+  --glass: oklch(1 0 0 / 55%);
+  --glass-border: oklch(0.76 0.1 60 / 55%);
+  --mascot-body: oklch(0.92 0.045 72);
+  --mascot-outline: oklch(0.75 0.11 58);
+  --tint-1: oklch(0.86 0.08 340);
+  --tint-2: oklch(0.86 0.08 150);
+  --tint-3: oklch(0.86 0.08 250);
+
+  --shadow-soft: 0 12px 40px -22px oklch(0.55 0.09 55 / 45%);
+}
+
+/* ---------------- Scifi (dark) ---------------- */
+.dark {
+  --radius: 0.25rem;
+  --font-display-family: "Space Grotesk", ui-sans-serif, system-ui, sans-serif;
+  --font-body-family: "IBM Plex Sans", ui-sans-serif, system-ui, sans-serif;
+
+  --background: oklch(0.19 0.055 273);
+  --foreground: oklch(0.93 0.02 220);
+  --card: oklch(1 0 0 / 5%);
+  --card-foreground: oklch(0.93 0.02 220);
+  --popover: oklch(0.24 0.05 272);
+  --popover-foreground: oklch(0.93 0.02 220);
+  --primary: oklch(0.85 0.11 187);
+  --primary-foreground: oklch(0.19 0.055 273);
+  --secondary: oklch(0.28 0.05 272);
+  --secondary-foreground: oklch(0.93 0.02 220);
+  --muted: oklch(0.26 0.045 272);
+  --muted-foreground: oklch(0.68 0.04 230);
+  --accent: oklch(0.72 0.14 305);
+  --accent-foreground: oklch(0.95 0.02 300);
+  --destructive: oklch(0.68 0.17 20);
+  --destructive-foreground: oklch(0.98 0.01 240);
+  --border: oklch(0.85 0.11 187 / 32%);
+  --input: oklch(0.85 0.11 187 / 25%);
+  --ring: oklch(0.85 0.11 187);
+
+  --glass: oklch(1 0 0 / 5%);
+  --glass-border: oklch(0.85 0.11 187 / 40%);
+  --mascot-body: oklch(0.24 0.06 275);
+  --mascot-outline: oklch(0.85 0.11 187);
+  --tint-1: oklch(0.8 0.12 320);
+  --tint-2: oklch(0.83 0.13 150);
+  --tint-3: oklch(0.8 0.12 250);
+
+  --shadow-soft: 0 14px 44px -26px oklch(0.85 0.11 187 / 40%);
+}
+
+@utility glass-panel {
+  background-color: var(--glass);
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius-2xl);
+  backdrop-filter: blur(14px);
+  box-shadow: var(--shadow-soft);
+}
+
+@utility text-display {
+  font-family: var(--font-display-family);
+  letter-spacing: -0.01em;
+}
+
+@layer base {
+  * {
+    border-color: var(--color-border);
+  }
+
+  html {
+    transition:
+      background-color 0.4s ease,
+      color 0.4s ease;
+  }
+
+  body {
+    background-color: var(--color-background);
+    color: var(--color-foreground);
+    font-family: var(--font-body-family);
+  }
+
+  h1,
+  h2,
+  h3 {
+    font-family: var(--font-display-family);
+  }
+}
