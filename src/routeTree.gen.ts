@@ -14,6 +14,7 @@ import { Route as AlmanacRouteImport } from './routes/almanac'
 import { Route as DailyRouteImport } from './routes/daily'
 import { Route as DiaryRouteImport } from './routes/diary'
 import { Route as DumpRouteImport } from './routes/dump'
+import { Route as LoginRouteImport } from './routes/login'
 import { Route as SettingsRouteImport } from './routes/settings'
 import { Route as TimetableRouteImport } from './routes/timetable'
 
@@ -42,6 +43,11 @@ const DumpRoute = DumpRouteImport.update({
   path: '/dump',
   getParentRoute: () => rootRouteImport,
 } as any)
+const LoginRoute = LoginRouteImport.update({
+  id: '/login',
+  path: '/login',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const SettingsRoute = SettingsRouteImport.update({
   id: '/settings',
   path: '/settings',
@@ -59,6 +65,7 @@ export interface FileRoutesByFullPath {
   '/daily': typeof DailyRoute
   '/diary': typeof DiaryRoute
   '/dump': typeof DumpRoute
+  '/login': typeof LoginRoute
   '/settings': typeof SettingsRoute
   '/timetable': typeof TimetableRoute
 }
@@ -68,6 +75,7 @@ export interface FileRoutesByTo {
   '/daily': typeof DailyRoute
   '/diary': typeof DiaryRoute
   '/dump': typeof DumpRoute
+  '/login': typeof LoginRoute
   '/settings': typeof SettingsRoute
   '/timetable': typeof TimetableRoute
 }
@@ -78,6 +86,7 @@ export interface FileRoutesById {
   '/daily': typeof DailyRoute
   '/diary': typeof DiaryRoute
   '/dump': typeof DumpRoute
+  '/login': typeof LoginRoute
   '/settings': typeof SettingsRoute
   '/timetable': typeof TimetableRoute
 }
@@ -89,6 +98,7 @@ export interface FileRouteTypes {
     | '/daily'
     | '/diary'
     | '/dump'
+    | '/login'
     | '/settings'
     | '/timetable'
   fileRoutesByTo: FileRoutesByTo
@@ -98,6 +108,7 @@ export interface FileRouteTypes {
     | '/daily'
     | '/diary'
     | '/dump'
+    | '/login'
     | '/settings'
     | '/timetable'
   id:
@@ -107,6 +118,7 @@ export interface FileRouteTypes {
     | '/daily'
     | '/diary'
     | '/dump'
+    | '/login'
     | '/settings'
     | '/timetable'
   fileRoutesById: FileRoutesById
@@ -117,6 +129,7 @@ export interface RootRouteChildren {
   DailyRoute: typeof DailyRoute
   DiaryRoute: typeof DiaryRoute
   DumpRoute: typeof DumpRoute
+  LoginRoute: typeof LoginRoute
   SettingsRoute: typeof SettingsRoute
   TimetableRoute: typeof TimetableRoute
 }
@@ -158,6 +171,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof DumpRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/login': {
+      id: '/login'
+      path: '/login'
+      fullPath: '/login'
+      preLoaderRoute: typeof LoginRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/settings': {
       id: '/settings'
       path: '/settings'
@@ -181,6 +201,7 @@ const rootRouteChildren: RootRouteChildren = {
   DailyRoute: DailyRoute,
   DiaryRoute: DiaryRoute,
   DumpRoute: DumpRoute,
+  LoginRoute: LoginRoute,
   SettingsRoute: SettingsRoute,
   TimetableRoute: TimetableRoute,
 }

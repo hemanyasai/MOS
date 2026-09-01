@@ -25,6 +25,9 @@ import { AppShell } from "../components/AppShell";
 import { NotificationRunner } from "../components/NotificationRunner";
 import { ShakeToDump } from "../components/ShakeToDump";
 import { Toaster } from "../components/ui/sonner";
+import { AuthProvider, useAuth } from "../lib/auth";
+import { useNavigate, useLocation } from "@tanstack/react-router";
+import { Loader2 } from "lucide-react";
 
 
 
@@ -142,24 +145,53 @@ function RootShell({ children }: { children: ReactNode }) {
   );
 }
 
+function RequireAuth({ children }: { children: ReactNode }) {
+  const { user, loading } = useAuth();
+  const navigate = useNavigate();
+  const location = useLocation();
+
+  useEffect(() => {
+    if (!loading && !user && location.pathname !== "/login") {
+      navigate({ to: "/login" });
+    }
+  }, [user, loading, location.pathname, navigate]);
+
+  if (loading) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-background">
+        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+      </div>
+    );
+  }
+
+  if (!user && location.pathname !== "/login") {
+    return null;
+  }
+
+  return <>{children}</>;
+}
+
 function RootComponent() {
   const { queryClient } = Route.useRouteContext();
 
   return (
     <QueryClientProvider client={queryClient}>
-      <ThemeProvider>
-        <PersonalitySettingsProvider>
-          <NotificationRunner />
-          <ShakeToDump />
-          <Toaster position="top-right" richColors />
+      <AuthProvider>
+        <ThemeProvider>
+          <PersonalitySettingsProvider>
+            <RequireAuth>
+              <NotificationRunner />
+              <ShakeToDump />
+              <Toaster position="top-right" richColors />
 
-          <AppShell>
-            {/* Required: nested routes render here. Removing <Outlet /> breaks all child routes. */}
-            <Outlet />
-          </AppShell>
-        </PersonalitySettingsProvider>
-      </ThemeProvider>
-
+              <AppShell>
+                {/* Required: nested routes render here. Removing <Outlet /> breaks all child routes. */}
+                <Outlet />
+              </AppShell>
+            </RequireAuth>
+          </PersonalitySettingsProvider>
+        </ThemeProvider>
+      </AuthProvider>
     </QueryClientProvider>
   );
 }

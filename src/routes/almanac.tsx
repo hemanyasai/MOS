@@ -262,7 +262,7 @@ function AlmanacScreen() {
                     <button
                       type="button"
                       aria-label={`Remove ${h.title}`}
-                      onClick={() => removeHoliday(h.id)}
+                      onClick={() => removeHoliday(String(h.id))}
                       className="shrink-0 opacity-40 transition-opacity hover:opacity-90"
                     >
                       <Trash2 className="h-3.5 w-3.5" />

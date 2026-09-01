@@ -1,7 +1,7 @@
-import { useLiveQuery } from "dexie-react-hooks";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 import { Check, Plus, Undo2 } from "lucide-react";
-import { db, type Deadline, type DeadlineImportance } from "@/lib/db";
+import { type Deadline, type DeadlineImportance, type PendingEvent, type PendingStatus } from "@/lib/db";
 import {
   DEADLINE_IMPORTANCE,
   accentColor,
@@ -17,6 +17,8 @@ import {
 import { toISODate } from "@/lib/period";
 import { useTheme } from "@/lib/theme";
 import { cn } from "@/lib/utils";
+import { supabase } from "@/lib/supabase";
+import { useAuth } from "@/lib/auth";
 
 const fieldStyle = { borderColor: "var(--glass-border)", background: "var(--glass)" };
 
@@ -30,6 +32,7 @@ function input(isPastel: boolean) {
 
 function AddDeadlineForm({ onDone }: { onDone: () => void }) {
   const { isPastel } = useTheme();
+  const queryClient = useQueryClient();
   const [title, setTitle] = useState("");
   const [dueDate, setDueDate] = useState(toISODate());
   const [dueTime, setDueTime] = useState("");
@@ -99,6 +102,7 @@ function AddDeadlineForm({ onDone }: { onDone: () => void }) {
               category: category.trim() || null,
               importance,
             });
+            await queryClient.invalidateQueries({ queryKey: ["deadlines"] });
             onDone();
           }}
         >
@@ -114,6 +118,7 @@ function AddDeadlineForm({ onDone }: { onDone: () => void }) {
 
 function DeadlineRow({ d }: { d: Deadline }) {
   const { isPastel } = useTheme();
+  const queryClient = useQueryClient();
   const overdue = isOverdue(d);
   const accent = overdue ? accentColor("overdue") : accentColor(d.importance);
 
@@ -158,7 +163,10 @@ function DeadlineRow({ d }: { d: Deadline }) {
       <button
         type="button"
         aria-label={d.doneAt ? `Restore ${d.title}` : `Mark ${d.title} done`}
-        onClick={() => markDeadlineDone(d.id, d.doneAt === null)}
+        onClick={async () => {
+          await markDeadlineDone(String(d.id), d.doneAt === null);
+          queryClient.invalidateQueries({ queryKey: ["deadlines"] });
+        }}
         className="shrink-0 opacity-40 transition-opacity hover:opacity-90"
       >
         {d.doneAt ? <Undo2 className="h-4 w-4" /> : <Check className="h-4 w-4" />}
@@ -169,9 +177,29 @@ function DeadlineRow({ d }: { d: Deadline }) {
 
 function PendingSection() {
   const { isPastel } = useTheme();
+  const { user } = useAuth();
+  const queryClient = useQueryClient();
   const [title, setTitle] = useState("");
   const [note, setNote] = useState("");
-  const events = useLiveQuery(() => db.pendingEvents.toArray(), [], []);
+  
+  const { data: eventsList } = useQuery({
+    queryKey: ["pendingEvents"],
+    queryFn: async () => {
+      const { data, error } = await supabase.from("pending_events").select("*");
+      if (error) throw error;
+      return (data || []).map(row => ({
+        id: row.id,
+        title: row.title,
+        note: row.note,
+        status: row.status as PendingStatus,
+        date: row.date,
+        createdAt: row.created_at,
+      })) as PendingEvent[];
+    },
+    enabled: !!user,
+  });
+
+  const events = eventsList ?? [];
   const undated = (events ?? []).filter((e) => e.status === "date unknown");
 
   return (
@@ -205,6 +233,7 @@ function PendingSection() {
           onClick={async () => {
             if (!title.trim()) return;
             await addPendingEvent({ title: title.trim(), note: note.trim() || null });
+            await queryClient.invalidateQueries({ queryKey: ["pendingEvents"] });
             setTitle("");
             setNote("");
           }}
@@ -235,8 +264,11 @@ function PendingSection() {
               <input
                 type="date"
                 aria-label={`Set date for ${e.title}`}
-                onChange={(ev) => {
-                  if (ev.target.value) void confirmPendingDate(e.id, ev.target.value);
+                onChange={async (ev) => {
+                  if (ev.target.value) {
+                    await confirmPendingDate(String(e.id), ev.target.value);
+                    queryClient.invalidateQueries({ queryKey: ["pendingEvents"] });
+                  }
                 }}
                 className={cn("border px-3 py-1.5 text-xs", isPastel ? "rounded-full" : "rounded-sm")}
                 style={fieldStyle}
@@ -251,7 +283,26 @@ function PendingSection() {
 
 function ConfirmedEvents() {
   const { isPastel } = useTheme();
-  const events = useLiveQuery(() => db.pendingEvents.toArray(), [], []);
+  const { user } = useAuth();
+  
+  const { data: eventsList } = useQuery({
+    queryKey: ["pendingEvents"],
+    queryFn: async () => {
+      const { data, error } = await supabase.from("pending_events").select("*");
+      if (error) throw error;
+      return (data || []).map(row => ({
+        id: row.id,
+        title: row.title,
+        note: row.note,
+        status: row.status as PendingStatus,
+        date: row.date,
+        createdAt: row.created_at,
+      })) as PendingEvent[];
+    },
+    enabled: !!user,
+  });
+
+  const events = eventsList ?? [];
   const dated = (events ?? [])
     .filter((e) => e.status === "date confirmed" && e.date)
     .sort((a, b) => (a.date ?? "").localeCompare(b.date ?? ""));
@@ -288,10 +339,30 @@ function ConfirmedEvents() {
 
 export function Deadlines() {
   const { theme, isPastel } = useTheme();
+  const { user } = useAuth();
   const [adding, setAdding] = useState(false);
   const [showDone, setShowDone] = useState(false);
-  const deadlines = useLiveQuery(() => db.deadlines.toArray(), [], []);
-  const all = deadlines ?? [];
+  
+  const { data: deadlinesList } = useQuery({
+    queryKey: ["deadlines"],
+    queryFn: async () => {
+      const { data, error } = await supabase.from("deadlines").select("*");
+      if (error) throw error;
+      return (data || []).map(row => ({
+        id: row.id,
+        title: row.title,
+        dueDate: row.due_date,
+        dueTime: row.due_time,
+        category: row.category,
+        importance: row.importance as DeadlineImportance,
+        doneAt: row.done_at,
+        createdAt: row.created_at,
+      })) as Deadline[];
+    },
+    enabled: !!user,
+  });
+
+  const all = deadlinesList ?? [];
   const active = activeDeadlines(all);
   const done = sortDeadlines(all.filter((d) => d.doneAt !== null));
 

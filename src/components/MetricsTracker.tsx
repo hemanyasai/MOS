@@ -1,7 +1,7 @@
-import { useLiveQuery } from "dexie-react-hooks";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useMemo, useState } from "react";
 import { Archive, Minus, Pause, Play, Plus, RotateCcw } from "lucide-react";
-import { db, type MetricCategory, type MetricType } from "@/lib/db";
+import { type MetricCategory, type MetricEntry, type MetricType } from "@/lib/db";
 import {
   METRIC_ICONS,
   METRIC_TYPES,
@@ -16,6 +16,8 @@ import {
 import { toISODate } from "@/lib/period";
 import { useTheme } from "@/lib/theme";
 import { cn } from "@/lib/utils";
+import { supabase } from "@/lib/supabase";
+import { useAuth } from "@/lib/auth";
 
 function pill(isPastel: boolean) {
   return cn("border px-3 py-1.5 text-xs transition-colors", isPastel ? "rounded-full" : "rounded-sm");
@@ -26,12 +28,32 @@ const fieldStyle = { borderColor: "var(--glass-border)", background: "var(--glas
 function CategoryCard({ cat, date }: { cat: MetricCategory; date: string }) {
   const { isPastel } = useTheme();
   const Icon = metricIcon(cat.icon);
-  const entries = useLiveQuery(
-    () => db.metricEntries.where({ categoryId: cat.id, date }).toArray(),
-    [cat.id, date],
-    [],
-  );
-  const total = dayTotal(entries ?? []);
+  const queryClient = useQueryClient();
+  const { user } = useAuth();
+  
+  const { data: entriesList } = useQuery({
+    queryKey: ["metricEntries", String(cat.id), date],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("metric_entries")
+        .select("*")
+        .eq("category_id", cat.id)
+        .eq("date", date);
+      if (error) throw error;
+      return (data || []).map(row => ({
+        id: row.id,
+        categoryId: row.category_id,
+        date: row.date,
+        value: row.value,
+        text: row.text,
+        createdAt: row.created_at,
+      })) as MetricEntry[];
+    },
+    enabled: !!user,
+  });
+
+  const entries = entriesList ?? [];
+  const total = dayTotal(entries);
   const [manual, setManual] = useState("");
   const [text, setText] = useState("");
   const [runningSince, setRunningSince] = useState<number | null>(null);
@@ -64,7 +86,10 @@ function CategoryCard({ cat, date }: { cat: MetricCategory; date: string }) {
         <button
           type="button"
           aria-label={`Archive ${cat.name}`}
-          onClick={() => setArchived(cat.id, true)}
+          onClick={async () => {
+            await setArchived(String(cat.id), true);
+            queryClient.invalidateQueries({ queryKey: ["metricCategories"] });
+          }}
           className="shrink-0 opacity-40 transition-opacity hover:opacity-90"
         >
           <Archive className="h-4 w-4" />
@@ -77,7 +102,10 @@ function CategoryCard({ cat, date }: { cat: MetricCategory; date: string }) {
             type="button"
             className={pill(isPastel)}
             style={fieldStyle}
-            onClick={() => logEntry(cat.id, 1)}
+            onClick={async () => {
+              await logEntry(String(cat.id), 1);
+              queryClient.invalidateQueries({ queryKey: ["metricEntries", String(cat.id), date] });
+            }}
           >
             <span className="flex items-center gap-1">
               <Plus className="h-3 w-3" /> 1
@@ -87,7 +115,10 @@ function CategoryCard({ cat, date }: { cat: MetricCategory; date: string }) {
             type="button"
             className={pill(isPastel)}
             style={fieldStyle}
-            onClick={() => logEntry(cat.id, -1)}
+            onClick={async () => {
+              await logEntry(String(cat.id), -1);
+              queryClient.invalidateQueries({ queryKey: ["metricEntries", String(cat.id), date] });
+            }}
           >
             <span className="flex items-center gap-1">
               <Minus className="h-3 w-3" /> 1
@@ -107,7 +138,7 @@ function CategoryCard({ cat, date }: { cat: MetricCategory; date: string }) {
             style={fieldStyle}
             onClick={() => {
               const n = Number(manual);
-              if (Number.isFinite(n) && n !== 0) logEntry(cat.id, n);
+              if (Number.isFinite(n) && n !== 0) logEntry(String(cat.id), n);
               setManual("");
             }}
           >
@@ -122,13 +153,16 @@ function CategoryCard({ cat, date }: { cat: MetricCategory; date: string }) {
             type="button"
             className={pill(isPastel)}
             style={fieldStyle}
-            onClick={() => {
+            onClick={async () => {
               if (runningSince === null) {
                 setRunningSince(Date.now());
               } else {
                 const mins = (Date.now() - runningSince) / 60000;
                 setRunningSince(null);
-                if (mins > 0.1) logEntry(cat.id, Math.round(mins));
+                if (mins > 0.1) {
+                  await logEntry(String(cat.id), Math.round(mins));
+                  queryClient.invalidateQueries({ queryKey: ["metricEntries", String(cat.id), date] });
+                }
               }
             }}
           >
@@ -162,7 +196,7 @@ function CategoryCard({ cat, date }: { cat: MetricCategory; date: string }) {
             style={fieldStyle}
             onClick={() => {
               const n = Number(manual);
-              if (Number.isFinite(n) && n !== 0) logEntry(cat.id, n);
+              if (Number.isFinite(n) && n !== 0) logEntry(String(cat.id), n);
               setManual("");
             }}
           >
@@ -188,8 +222,11 @@ function CategoryCard({ cat, date }: { cat: MetricCategory; date: string }) {
               type="button"
               className={pill(isPastel)}
               style={fieldStyle}
-              onClick={() => {
-                if (text.trim()) logEntry(cat.id, 0, text.trim());
+              onClick={async () => {
+                if (text.trim()) {
+                  await logEntry(String(cat.id), 0, text.trim());
+                  queryClient.invalidateQueries({ queryKey: ["metricEntries", String(cat.id), date] });
+                }
                 setText("");
               }}
             >
@@ -211,6 +248,7 @@ function CategoryCard({ cat, date }: { cat: MetricCategory; date: string }) {
 
 function AddCategoryForm({ onDone }: { onDone: () => void }) {
   const { isPastel } = useTheme();
+  const queryClient = useQueryClient();
   const [name, setName] = useState("");
   const [icon, setIcon] = useState("star");
   const [type, setType] = useState<MetricType>("counter");
@@ -308,6 +346,7 @@ function AddCategoryForm({ onDone }: { onDone: () => void }) {
               unit: unit.trim() || (type === "duration" ? "minutes" : "times"),
               dailyGoal: Number.isFinite(n) && n > 0 ? n : null,
             });
+            await queryClient.invalidateQueries({ queryKey: ["metricCategories"] });
             onDone();
           }}
         >
@@ -323,17 +362,42 @@ function AddCategoryForm({ onDone }: { onDone: () => void }) {
 
 export function MetricsTracker() {
   const { theme, isPastel } = useTheme();
+  const { user } = useAuth();
+  const queryClient = useQueryClient();
   const [adding, setAdding] = useState(false);
   const [showArchived, setShowArchived] = useState(false);
   const date = useMemo(() => toISODate(), []);
 
   useEffect(() => {
-    void ensureDefaultCategories();
-  }, []);
+    if (user) {
+      ensureDefaultCategories().then(() => {
+        queryClient.invalidateQueries({ queryKey: ["metricCategories"] });
+      });
+    }
+  }, [user, queryClient]);
 
-  const categories = useLiveQuery(() => db.metricCategories.toArray(), [], []);
-  const activeCats = (categories ?? []).filter((c) => !c.archived);
-  const archivedCats = (categories ?? []).filter((c) => c.archived);
+  const { data: categoriesList } = useQuery({
+    queryKey: ["metricCategories"],
+    queryFn: async () => {
+      const { data, error } = await supabase.from("metric_categories").select("*");
+      if (error) throw error;
+      return (data || []).map(row => ({
+        id: row.id,
+        name: row.name,
+        icon: row.icon,
+        type: row.type as MetricType,
+        unit: row.unit,
+        dailyGoal: row.daily_goal,
+        archived: row.archived,
+        createdAt: row.created_at,
+      })) as MetricCategory[];
+    },
+    enabled: !!user,
+  });
+
+  const categories = categoriesList ?? [];
+  const activeCats = categories.filter((c) => !c.archived);
+  const archivedCats = categories.filter((c) => c.archived);
 
   return (
     <section className="flex flex-col gap-4">
@@ -387,7 +451,10 @@ export function MetricsTracker() {
                     type="button"
                     className={pill(isPastel)}
                     style={fieldStyle}
-                    onClick={() => setArchived(c.id, false)}
+                    onClick={async () => {
+                      await setArchived(String(c.id), false);
+                      queryClient.invalidateQueries({ queryKey: ["metricCategories"] });
+                    }}
                   >
                     restore
                   </button>
@@ -400,3 +467,4 @@ export function MetricsTracker() {
     </section>
   );
 }
+

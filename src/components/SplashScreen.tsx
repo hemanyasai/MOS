@@ -7,18 +7,14 @@ import { useTheme } from "@/lib/theme";
  */
 export function SplashScreen() {
   const { theme } = useTheme();
-  const [show, setShow] = useState(false);
+  const [show, setShow] = useState(() => !sessionStorage.getItem("mos_splash_seen"));
   const [fade, setFade] = useState(false);
 
   useEffect(() => {
-    // Only show once per session
-    if (!sessionStorage.getItem("mos_splash_seen")) {
-      setShow(true);
+    if (show) {
       sessionStorage.setItem("mos_splash_seen", "true");
       
-      // Start fading out after 1.2s
       const t1 = setTimeout(() => setFade(true), 1200);
-      // Remove from DOM after transition completes
       const t2 = setTimeout(() => setShow(false), 2000);
       
       return () => {
@@ -26,7 +22,7 @@ export function SplashScreen() {
         clearTimeout(t2);
       };
     }
-  }, []);
+  }, [show]);
 
   if (!show) return null;
 

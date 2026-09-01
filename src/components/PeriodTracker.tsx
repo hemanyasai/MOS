@@ -1,7 +1,7 @@
-import { useLiveQuery } from "dexie-react-hooks";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 import { Droplet, HeartPulse } from "lucide-react";
-import { db, SYMPTOMS, type Flow, type Symptom } from "@/lib/db";
+import { SYMPTOMS, type Flow, type Symptom, type Cycle } from "@/lib/db";
 import {
   averageCycleLength,
   endPeriodToday,
@@ -13,6 +13,8 @@ import {
 } from "@/lib/period";
 import { useTheme } from "@/lib/theme";
 import { cn } from "@/lib/utils";
+import { supabase } from "@/lib/supabase";
+import { useAuth } from "@/lib/auth";
 
 const FLOWS: Flow[] = ["light", "medium", "heavy"];
 
@@ -47,26 +49,63 @@ function Chip({
 
 export function PeriodTracker() {
   const { theme, isPastel } = useTheme();
+  const { user } = useAuth();
+  const queryClient = useQueryClient();
   const [busy, setBusy] = useState(false);
   const today = toISODate();
 
-  const cycles = useLiveQuery(() => db.cycles.toArray(), [], undefined);
-  const active = cycles?.filter((c) => c.endDate === null).sort((a, b) => (a.startDate < b.startDate ? 1 : -1))[0];
-  const todayLog = useLiveQuery(
-    async () => (active ? ((await db.cycleDays.where({ cycleId: active.id, date: today }).first()) ?? null) : null),
-    [active?.id, today],
-    null,
-  );
+  const { data: cyclesList } = useQuery({
+    queryKey: ["cycles"],
+    queryFn: async () => {
+      const { data, error } = await supabase.from("cycles").select("*");
+      if (error) throw error;
+      return (data || []).map(row => ({
+        id: row.id,
+        startDate: row.start_date,
+        endDate: row.end_date,
+        lengthDays: row.length_days,
+        createdAt: row.created_at
+      })) as Cycle[];
+    },
+    enabled: !!user,
+  });
+  const cycles = cyclesList ?? [];
+  const active = cycles.filter((c) => c.endDate === null).sort((a, b) => (a.startDate < b.startDate ? 1 : -1))[0];
+  
+  const { data: todayLog } = useQuery({
+    queryKey: ["cycleDays", active?.id, today],
+    queryFn: async () => {
+      if (!active) return null;
+      const { data, error } = await supabase
+        .from("cycle_days")
+        .select("*")
+        .eq("cycle_id", active.id)
+        .eq("date", today)
+        .maybeSingle();
+      if (error) throw error;
+      if (!data) return null;
+      return {
+        id: data.id,
+        cycleId: data.cycle_id,
+        date: data.date,
+        flow: data.flow as Flow,
+        symptoms: data.symptoms as Symptom[],
+        createdAt: data.created_at
+      };
+    },
+    enabled: !!active && !!user,
+  });
 
-  const completed = (cycles ?? []).filter((c) => c.endDate !== null);
-  const avg = averageCycleLength(cycles ?? []);
-  const next = predictNextStart(cycles ?? []);
+  const completed = cycles.filter((c) => c.endDate !== null);
+  const avg = averageCycleLength(cycles);
+  const next = predictNextStart(cycles);
 
   const toggleSymptom = async (s: Symptom) => {
     if (!active) return;
     const current = todayLog?.symptoms ?? [];
     const symptoms = current.includes(s) ? current.filter((x) => x !== s) : [...current, s];
-    await setDayLog(active.id, today, { symptoms });
+    await setDayLog(active.id as string, today, { symptoms });
+    queryClient.invalidateQueries({ queryKey: ["cycleDays", active.id, today] });
   };
 
   return (
@@ -95,6 +134,7 @@ export function PeriodTracker() {
             onClick={async () => {
               setBusy(true);
               await startPeriodToday();
+              queryClient.invalidateQueries({ queryKey: ["cycles"] });
               setBusy(false);
             }}
             className={cn(
@@ -116,6 +156,7 @@ export function PeriodTracker() {
             onClick={async () => {
               setBusy(true);
               await endPeriodToday();
+              queryClient.invalidateQueries({ queryKey: ["cycles"] });
               setBusy(false);
             }}
             className={cn(
@@ -142,9 +183,10 @@ export function PeriodTracker() {
                 <Chip
                   key={f}
                   active={todayLog?.flow === f}
-                  onClick={() =>
-                    setDayLog(active.id, today, { flow: todayLog?.flow === f ? null : f })
-                  }
+                  onClick={async () => {
+                    await setDayLog(active.id as string, today, { flow: todayLog?.flow === f ? null : f });
+                    queryClient.invalidateQueries({ queryKey: ["cycleDays", active.id, today] });
+                  }}
                 >
                   <span className="flex items-center gap-1.5">
                     <Droplet className="h-3 w-3" />

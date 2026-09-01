@@ -33,7 +33,7 @@ function Logo({ onLongPress }: { onLongPress?: () => void }) {
         )}
         style={{
           borderColor: "var(--glass-border)",
-          background: "var(--glass)",
+          background: "transparent",
         }}
       >
         <Mascot size={26} expression={expression} />

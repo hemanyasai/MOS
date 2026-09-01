@@ -21,7 +21,7 @@ export default defineConfig({
         name: "MOS - My Operating System",
         short_name: "MOS",
         description: "A private, offline personal operating system for your days, deadlines and diary.",
-        theme_color: "#f9f6ef",
+        theme_color: "#c97b5a",
         background_color: "#f9f6ef",
         display: "standalone",
         icons: [

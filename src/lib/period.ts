@@ -1,4 +1,11 @@
-import { db, type Cycle, type CycleDay, type Flow, type Symptom } from "@/lib/db";
+import { supabase } from "@/lib/supabase";
+import { type Cycle, type CycleDay, type Flow, type Symptom } from "@/lib/db";
+
+async function getUserId() {
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) throw new Error("Not authenticated");
+  return user.id;
+}
 
 /** ISO yyyy-mm-dd for a local date. */
 export function toISODate(d: Date = new Date()): string {
@@ -31,45 +38,89 @@ export function formatFriendly(iso: string): string {
 }
 
 export async function getActiveCycle(): Promise<Cycle | undefined> {
-  const all = await db.cycles.toArray();
-  return all.filter((c) => c.endDate === null).sort((a, b) => (a.startDate < b.startDate ? 1 : -1))[0];
+  const user_id = await getUserId();
+  const { data, error } = await supabase
+    .from("cycles")
+    .select("*")
+    .eq("user_id", user_id)
+    .is("end_date", null)
+    .order("start_date", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+  if (error) throw error;
+  if (!data) return undefined;
+  return {
+    id: data.id,
+    startDate: data.start_date,
+    endDate: data.end_date,
+    lengthDays: data.length_days,
+    createdAt: data.created_at
+  } as Cycle;
 }
 
 export async function startPeriodToday(): Promise<void> {
   const active = await getActiveCycle();
   if (active) return;
-  await db.cycles.add({ startDate: toISODate(), endDate: null, lengthDays: null } as Cycle);
+  const user_id = await getUserId();
+  await supabase.from("cycles").insert([{
+    user_id,
+    start_date: toISODate(),
+    end_date: null,
+    length_days: null,
+    created_at: Date.now()
+  }]);
 }
 
 export async function endPeriodToday(): Promise<void> {
   const active = await getActiveCycle();
   if (!active) return;
   const endDate = toISODate();
-  await db.cycles.update(active.id, {
-    endDate,
-    lengthDays: daysBetween(active.startDate, endDate) + 1,
-  });
+  await supabase.from("cycles").update({
+    end_date: endDate,
+    length_days: daysBetween(active.startDate, endDate) + 1
+  }).eq("id", active.id);
 }
 
-export async function getDayLog(cycleId: number, date: string): Promise<CycleDay | undefined> {
-  return db.cycleDays.where({ cycleId, date }).first();
+export async function getDayLog(cycleId: string, date: string): Promise<CycleDay | undefined> {
+  const { data, error } = await supabase
+    .from("cycle_days")
+    .select("*")
+    .eq("cycle_id", cycleId)
+    .eq("date", date)
+    .maybeSingle();
+  if (error) throw error;
+  if (!data) return undefined;
+  return {
+    id: data.id,
+    cycleId: data.cycle_id,
+    date: data.date,
+    flow: data.flow as Flow,
+    symptoms: data.symptoms as Symptom[],
+    createdAt: data.created_at
+  } as CycleDay;
 }
 
 export async function setDayLog(
-  cycleId: number,
+  cycleId: string,
   date: string,
   patch: { flow?: Flow | null; symptoms?: Symptom[] },
 ): Promise<void> {
   const existing = await getDayLog(cycleId, date);
+  const user_id = await getUserId();
   if (existing) {
-    await db.cycleDays.update(existing.id, patch);
+    const updatePayload: any = {};
+    if (patch.flow !== undefined) updatePayload.flow = patch.flow;
+    if (patch.symptoms !== undefined) updatePayload.symptoms = patch.symptoms;
+    await supabase.from("cycle_days").update(updatePayload).eq("id", existing.id);
   } else {
-    await db.cycleDays.add({
-      cycleId,
+    await supabase.from("cycle_days").insert([{
+      user_id,
+      cycle_id: cycleId,
       date,
       flow: patch.flow ?? null,
       symptoms: patch.symptoms ?? [],
-    } as CycleDay);
+      created_at: Date.now()
+    }]);
   }
 }
 

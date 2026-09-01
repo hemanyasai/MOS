@@ -2,6 +2,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import { ModuleScreen } from "@/components/ModuleScreen";
 import { DiaryReset } from "@/components/DiaryReset";
 import { NotificationSettings } from "@/components/NotificationSettings";
+import { DataExport } from "@/components/DataExport";
 import { Slider } from "@/components/ui/slider";
 import { defaultSlider, usePersonalitySettings } from "@/lib/personality-settings";
 import { useTheme } from "@/lib/theme";
@@ -148,6 +149,8 @@ function SettingsScreen() {
       </section>
 
       <NotificationSettings />
+
+      <DataExport />
 
       <DiaryReset />
     </ModuleScreen>

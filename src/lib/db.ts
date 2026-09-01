@@ -5,7 +5,7 @@ import Dexie, { type EntityTable } from "dexie";
  * Tables are declared now so follow-up modules can fill them in.
  */
 export interface Note {
-  id: number;
+  id: string | number;
   body: string;
   createdAt: number;
 }
@@ -17,7 +17,7 @@ export interface Setting {
 
 /** A menstrual cycle. `endDate` is null while the period is still active. */
 export interface Cycle {
-  id: number;
+  id: string | number;
   /** ISO date yyyy-mm-dd */
   startDate: string;
   endDate: string | null;
@@ -31,7 +31,7 @@ export type Symptom = (typeof SYMPTOMS)[number];
 
 /** One logged day inside a cycle. */
 export interface CycleDay {
-  id: number;
+  id: string | number;
   cycleId: number;
   /** ISO date yyyy-mm-dd */
   date: string;
@@ -42,7 +42,7 @@ export interface CycleDay {
 export type MetricType = "counter" | "duration" | "text_log";
 
 export interface MetricCategory {
-  id: number;
+  id: string | number;
   name: string;
   /** Lucide icon key, see lib/metric-icons.ts */
   icon: string;
@@ -55,7 +55,7 @@ export interface MetricCategory {
 
 /** One logged entry for a category on a given day. */
 export interface MetricEntry {
-  id: number;
+  id: string | number;
   categoryId: number;
   /** ISO date yyyy-mm-dd */
   date: string;
@@ -71,7 +71,7 @@ export type PendingStatus = "date unknown" | "date confirmed";
 
 /** A recurring weekly class. */
 export interface ClassItem {
-  id: number;
+  id: string | number;
   subject: string;
   /** 0 = Sunday .. 6 = Saturday */
   dayOfWeek: number;
@@ -84,7 +84,7 @@ export interface ClassItem {
 }
 
 export interface Deadline {
-  id: number;
+  id: string | number;
   title: string;
   /** ISO yyyy-mm-dd */
   dueDate: string;
@@ -97,7 +97,7 @@ export interface Deadline {
 }
 
 export interface PendingEvent {
-  id: number;
+  id: string | number;
   title: string;
   note: string | null;
   status: PendingStatus;
@@ -108,7 +108,7 @@ export interface PendingEvent {
 
 /** A one-off manually added holiday / special date. */
 export interface Holiday {
-  id: number;
+  id: string | number;
   title: string;
   /** ISO yyyy-mm-dd */
   date: string;
@@ -123,7 +123,7 @@ export interface DiaryAttachment {
 
 /** One JB diary entry. All media lives locally as Blobs. */
 export interface DiaryEntry {
-  id: number;
+  id: string | number;
   timestamp: number;
   text: string;
   images: Blob[];

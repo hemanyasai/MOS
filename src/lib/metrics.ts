@@ -14,8 +14,15 @@ import {
   Star,
   type LucideIcon,
 } from "lucide-react";
-import { db, type MetricCategory, type MetricEntry, type MetricType } from "@/lib/db";
 import { toISODate } from "@/lib/period";
+import { supabase } from "@/lib/supabase";
+import { type MetricCategory, type MetricEntry, type MetricType } from "@/lib/db";
+
+async function getUserId() {
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) throw new Error("Not authenticated");
+  return user.id;
+}
 
 export const METRIC_ICONS: Record<string, LucideIcon> = {
   clock: Clock,
@@ -71,12 +78,27 @@ let seeding: Promise<void> | null = null;
 /** Seeds the three default categories once, on first run. */
 export function ensureDefaultCategories(): Promise<void> {
   seeding ??= (async () => {
-    const count = await db.metricCategories.count();
-    if (count > 0) return;
-    const now = Date.now();
-    await db.metricCategories.bulkAdd(
-      DEFAULTS.map((d, i) => ({ ...d, createdAt: now + i }) as MetricCategory),
-    );
+    try {
+      const user_id = await getUserId();
+      const { count } = await supabase.from("metric_categories").select("*", { count: "exact", head: true });
+      if (count && count > 0) return;
+      
+      const now = Date.now();
+      await supabase.from("metric_categories").insert(
+        DEFAULTS.map((d, i) => ({
+          user_id,
+          name: d.name,
+          icon: d.icon,
+          type: d.type,
+          unit: d.unit,
+          daily_goal: d.dailyGoal,
+          archived: d.archived,
+          created_at: now + i
+        }))
+      );
+    } catch (err) {
+      console.warn("Failed to ensure default categories", err);
+    }
   })();
   return seeding;
 }
@@ -88,26 +110,38 @@ export async function addCategory(input: {
   unit: string;
   dailyGoal: number | null;
 }): Promise<void> {
-  await db.metricCategories.add({ ...input, archived: false, createdAt: Date.now() } as MetricCategory);
+  const user_id = await getUserId();
+  await supabase.from("metric_categories").insert([{
+    user_id,
+    name: input.name,
+    icon: input.icon,
+    type: input.type,
+    unit: input.unit,
+    daily_goal: input.dailyGoal,
+    archived: false,
+    created_at: Date.now()
+  }]);
 }
 
 /** Soft delete: entries are always kept. */
-export async function setArchived(id: number, archived: boolean): Promise<void> {
-  await db.metricCategories.update(id, { archived });
+export async function setArchived(id: string, archived: boolean): Promise<void> {
+  await supabase.from("metric_categories").update({ archived }).eq("id", id);
 }
 
 export async function logEntry(
-  categoryId: number,
+  categoryId: string,
   value: number,
   text: string | null = null,
 ): Promise<void> {
-  await db.metricEntries.add({
-    categoryId,
+  const user_id = await getUserId();
+  await supabase.from("metric_entries").insert([{
+    user_id,
+    category_id: categoryId,
     date: toISODate(),
     value,
     text,
-    createdAt: Date.now(),
-  } as MetricEntry);
+    created_at: Date.now()
+  }]);
 }
 
 export function dayTotal(entries: MetricEntry[]): number {

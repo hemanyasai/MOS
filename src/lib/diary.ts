@@ -1,6 +1,5 @@
-import { db, type DiaryAttachment, type DiaryEntry } from "@/lib/db";
-
-const PIN_KEY = "diary.pinHash";
+import { supabase } from "@/lib/supabase";
+import { type DiaryAttachment } from "@/lib/db";
 
 /** SHA-256 hex — the raw PIN is never stored. */
 export async function hashPin(pin: string): Promise<string> {
@@ -11,13 +10,15 @@ export async function hashPin(pin: string): Promise<string> {
     .join("");
 }
 
+/** Stores PIN hash in Supabase user metadata (never the raw PIN). */
 export async function getPinHash(): Promise<string | null> {
-  const row = await db.settings.get(PIN_KEY);
-  return (row?.value as string | undefined) ?? null;
+  const { data: { user } } = await supabase.auth.getUser();
+  return (user?.user_metadata?.["diary_pin_hash"] as string | undefined) ?? null;
 }
 
 export async function setPin(pin: string): Promise<void> {
-  await db.settings.put({ key: PIN_KEY, value: await hashPin(pin) });
+  const hash = await hashPin(pin);
+  await supabase.auth.updateUser({ data: { diary_pin_hash: hash } });
 }
 
 export async function verifyPin(pin: string): Promise<boolean> {
@@ -47,6 +48,14 @@ export const STICKERS = [
   "💗",
 ] as const;
 
+/** Uploads a blob to Supabase Storage, returns the storage path. */
+async function uploadBlob(blob: Blob, folder: string, filename: string, userId: string): Promise<string> {
+  const path = `${userId}/${folder}/${filename}`;
+  const { error } = await supabase.storage.from("diary-media").upload(path, blob, { upsert: true });
+  if (error) throw error;
+  return path;
+}
+
 export async function addEntry(input: {
   text: string;
   images: Blob[];
@@ -55,17 +64,47 @@ export async function addEntry(input: {
   tags: string[];
   sticker: string | null;
 }): Promise<void> {
-  await db.diaryEntries.add({ ...input, timestamp: Date.now() } as DiaryEntry);
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) throw new Error("Not authenticated");
+  const ts = Date.now();
+  const prefix = ts.toString();
+
+  const imagePaths = await Promise.all(
+    input.images.map((b, i) => uploadBlob(b, `images/${prefix}`, `img_${i}.${b.type.split("/")[1] ?? "bin"}`, user.id))
+  );
+  const voicePaths = await Promise.all(
+    input.voiceNotes.map((b, i) => uploadBlob(b, `voice/${prefix}`, `voice_${i}.${b.type.split("/")[1] ?? "webm"}`, user.id))
+  );
+  const attachmentMeta = await Promise.all(
+    input.attachments.map(async (a, i) => {
+      const path = await uploadBlob(a.blob, `files/${prefix}`, a.filename || `file_${i}`, user.id);
+      return { filename: a.filename, path, mime_type: a.blob.type };
+    })
+  );
+
+  await supabase.from("diary_entries").insert([{
+    user_id: user.id,
+    timestamp: ts,
+    text: input.text,
+    image_paths: imagePaths,
+    voice_paths: voicePaths,
+    attachment_meta: attachmentMeta,
+    tags: input.tags,
+    sticker: input.sticker,
+  }]);
 }
 
-export async function removeEntry(id: number): Promise<void> {
-  await db.diaryEntries.delete(id);
+export async function removeEntry(id: string): Promise<void> {
+  // Delete the row — storage files are left (orphan cleanup can be done separately)
+  await supabase.from("diary_entries").delete().eq("id", id);
 }
 
 /** Wipe every JB entry and the stored PIN hash. */
 export async function clearDiaryData(): Promise<void> {
-  await db.diaryEntries.clear();
-  await db.settings.delete(PIN_KEY);
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return;
+  await supabase.from("diary_entries").delete().eq("user_id", user.id);
+  await supabase.auth.updateUser({ data: { diary_pin_hash: null } });
 }
 
 export function parseTags(raw: string): string[] {

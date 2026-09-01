@@ -133,7 +133,7 @@ export async function runNotificationChecks(): Promise<void> {
 
   // --- Deadline nudge tracking ---
   const deadlines = activeDeadlines(await db.deadlines.toArray());
-  const notifiedOverdue = await get<number[]>(NOTIFIED_OVERDUE, []);
+  const notifiedOverdue = await get<string[]>(NOTIFIED_OVERDUE, []);
 
   let nudgesDate = await get<string | null>(NOTIFIED_NUDGES_DATE, null);
   let nudges = await get<Record<string, string[]>>(NOTIFIED_NUDGES, {});
@@ -146,7 +146,7 @@ export async function runNotificationChecks(): Promise<void> {
 
   // Newly overdue (past due date, fire once ever)
   const newlyOverdue = deadlines.filter(
-    (d) => d.dueDate < today && !notifiedOverdue.includes(d.id),
+    (d) => d.dueDate < today && !notifiedOverdue.includes(String(d.id)),
   );
   if (newlyOverdue.length > 0) {
     browserSections.push(newlyOverdue.map((d) => `Overdue: ${d.title} (${dueLabel(d)})`).join("\n"));

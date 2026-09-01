@@ -1,11 +1,12 @@
-import { useLiveQuery } from "dexie-react-hooks";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useRef, useState } from "react";
-import { Image as ImageIcon, Mic, Paperclip, Plus, Square, Trash2, X, Search } from "lucide-react";
-import { useBlobUrl } from "@/hooks/use-blob-url";
-import { db, type DiaryAttachment, type DiaryEntry } from "@/lib/db";
+import { Image as ImageIcon, Mic, Paperclip, Plus, Square, Trash2, X, Search, Loader2 } from "lucide-react";
 import { STICKERS, addEntry, entryDate, parseTags, preview, removeEntry } from "@/lib/diary";
 import { useTheme } from "@/lib/theme";
 import { cn } from "@/lib/utils";
+import { supabase } from "@/lib/supabase";
+import { useAuth } from "@/lib/auth";
+import type { DiaryAttachment } from "@/lib/db";
 
 const fieldStyle = { borderColor: "var(--glass-border)", background: "var(--glass)" };
 
@@ -13,21 +14,41 @@ function pill(isPastel: boolean) {
   return cn("border px-3 py-1.5 text-xs transition-colors", isPastel ? "rounded-full" : "rounded-sm");
 }
 
-function BlobImage({ blob, className }: { blob: Blob; className?: string }) {
-  const url = useBlobUrl(blob);
+// Each diary row from Supabase
+export type DiaryRow = {
+  id: string;
+  timestamp: number;
+  text: string;
+  image_paths: string[];
+  voice_paths: string[];
+  attachment_meta: { filename: string; path: string; mime_type: string }[];
+  tags: string[];
+  sticker: string | null;
+};
+
+function SignedImage({ path, className }: { path: string; className?: string }) {
   const [open, setOpen] = useState(false);
-  if (!url) return null;
+  const { data: url } = useQuery({
+    queryKey: ["signed-url", path],
+    queryFn: async () => {
+      const { data, error } = await supabase.storage.from("diary-media").createSignedUrl(path, 3600);
+      if (error) throw error;
+      return data.signedUrl;
+    },
+    staleTime: 3500 * 1000,
+  });
+  if (!url) return <div className={cn("bg-muted animate-pulse", className)} />;
   return (
     <>
-      <img 
-        src={url} 
-        alt="Diary attachment" 
-        loading="lazy" 
-        className={cn("cursor-pointer transition-transform hover:scale-[1.02]", className)} 
+      <img
+        src={url}
+        alt="Diary attachment"
+        loading="lazy"
+        className={cn("cursor-pointer transition-transform hover:scale-[1.02]", className)}
         onClick={(e) => { e.stopPropagation(); setOpen(true); }}
       />
       {open && (
-        <div 
+        <div
           className="fixed inset-0 z-50 grid place-items-center bg-background/80 p-4 backdrop-blur-sm"
           onClick={(e) => { e.stopPropagation(); setOpen(false); }}
         >
@@ -38,30 +59,44 @@ function BlobImage({ blob, className }: { blob: Blob; className?: string }) {
   );
 }
 
-function BlobAudio({ blob }: { blob: Blob }) {
-  const url = useBlobUrl(blob);
+function SignedAudio({ path }: { path: string }) {
+  const { data: url } = useQuery({
+    queryKey: ["signed-url", path],
+    queryFn: async () => {
+      const { data, error } = await supabase.storage.from("diary-media").createSignedUrl(path, 3600);
+      if (error) throw error;
+      return data.signedUrl;
+    },
+    staleTime: 3500 * 1000,
+  });
   if (!url) return null;
   return <audio controls src={url} className="w-full" onClick={(e) => e.stopPropagation()} />;
 }
 
-function BlobFile({ file }: { file: DiaryAttachment }) {
-  const url = useBlobUrl(file.blob);
+function SignedFile({ meta, isPastel }: { meta: { filename: string; path: string; mime_type: string }; isPastel: boolean }) {
   const [open, setOpen] = useState(false);
+  const { data: url } = useQuery({
+    queryKey: ["signed-url", meta.path],
+    queryFn: async () => {
+      const { data, error } = await supabase.storage.from("diary-media").createSignedUrl(meta.path, 3600);
+      if (error) throw error;
+      return data.signedUrl;
+    },
+    staleTime: 3500 * 1000,
+  });
   if (!url) return null;
-  
-  const isImage = file.blob.type.startsWith("image/");
-
+  const isImage = meta.mime_type.startsWith("image/");
   return (
     <>
-      <button 
+      <button
         type="button"
         onClick={(e) => { e.stopPropagation(); setOpen(true); }}
         className="text-xs underline underline-offset-4 text-left break-all cursor-pointer hover:text-primary transition-colors"
       >
-        {file.filename}
+        {meta.filename}
       </button>
       {open && (
-        <div 
+        <div
           className="fixed inset-0 z-50 grid place-items-center bg-background/80 p-4 backdrop-blur-sm"
           onClick={(e) => { e.stopPropagation(); setOpen(false); }}
         >
@@ -72,9 +107,9 @@ function BlobFile({ file }: { file: DiaryAttachment }) {
               </button>
             </div>
             {isImage ? (
-               <img src={url} alt={file.filename} className="max-h-[80vh] max-w-[90vw] object-contain rounded-lg shadow-2xl" />
+              <img src={url} alt={meta.filename} className="max-h-[80vh] max-w-[90vw] object-contain rounded-lg shadow-2xl" />
             ) : (
-               <iframe src={url} title={file.filename} className="w-[90vw] h-[80vh] rounded-lg shadow-2xl bg-white" />
+              <iframe src={url} title={meta.filename} className="w-[90vw] h-[80vh] rounded-lg shadow-2xl bg-white" />
             )}
           </div>
         </div>
@@ -94,6 +129,7 @@ function Composer({ onDone }: { onDone: () => void }) {
   const [sticker, setSticker] = useState<string | null>(null);
   const [recording, setRecording] = useState(false);
   const [micError, setMicError] = useState<string | null>(null);
+  const [saving, setSaving] = useState(false);
   const recorderRef = useRef<MediaRecorder | null>(null);
   const imageInput = useRef<HTMLInputElement>(null);
   const fileInput = useRef<HTMLInputElement>(null);
@@ -128,8 +164,7 @@ function Composer({ onDone }: { onDone: () => void }) {
     setTagDraft("");
   }
 
-  const empty =
-    !text.trim() && images.length === 0 && voiceNotes.length === 0 && attachments.length === 0;
+  const empty = !text.trim() && images.length === 0 && voiceNotes.length === 0 && attachments.length === 0;
 
   return (
     <div className="glass-panel flex flex-col gap-4 p-5">
@@ -200,8 +235,9 @@ function Composer({ onDone }: { onDone: () => void }) {
         <div className="flex flex-wrap gap-2">
           {images.map((b, i) => (
             <div key={i} className="relative">
-              <BlobImage
-                blob={b}
+              <img
+                src={URL.createObjectURL(b)}
+                alt="Preview"
                 className={cn("h-16 w-16 object-cover", isPastel ? "rounded-2xl" : "rounded-sm")}
               />
               <button
@@ -218,7 +254,7 @@ function Composer({ onDone }: { onDone: () => void }) {
       )}
 
       {voiceNotes.map((b, i) => (
-        <BlobAudio key={i} blob={b} />
+        <audio key={i} controls src={URL.createObjectURL(b)} className="w-full" />
       ))}
 
       {attachments.length > 0 && (
@@ -273,10 +309,7 @@ function Composer({ onDone }: { onDone: () => void }) {
             type="button"
             aria-label={`Sticker ${s}`}
             onClick={() => setSticker((cur) => (cur === s ? null : s))}
-            className={cn(
-              "border px-2 py-1 text-base transition-colors",
-              isPastel ? "rounded-full" : "rounded-sm",
-            )}
+            className={cn("border px-2 py-1 text-base transition-colors", isPastel ? "rounded-full" : "rounded-sm")}
             style={{
               borderColor: sticker === s ? "var(--primary)" : "transparent",
               background: sticker === s ? "var(--glass)" : "transparent",
@@ -292,13 +325,19 @@ function Composer({ onDone }: { onDone: () => void }) {
           type="button"
           className={pill(isPastel)}
           style={{ borderColor: "var(--primary)", background: "var(--glass)", color: "var(--primary)" }}
+          disabled={empty || saving}
           onClick={async () => {
             if (empty) return;
-            await addEntry({ text: text.trim(), images, voiceNotes, attachments, tags, sticker });
-            onDone();
+            setSaving(true);
+            try {
+              await addEntry({ text: text.trim(), images, voiceNotes, attachments, tags, sticker });
+              onDone();
+            } finally {
+              setSaving(false);
+            }
           }}
         >
-          Save entry
+          {saving ? <Loader2 className="h-3 w-3 animate-spin" /> : "Save entry"}
         </button>
         <button type="button" className={pill(isPastel)} style={fieldStyle} onClick={onDone}>
           Cancel
@@ -308,12 +347,12 @@ function Composer({ onDone }: { onDone: () => void }) {
   );
 }
 
-function EntryDetail({ entry, onClose }: { entry: DiaryEntry; onClose: () => void }) {
+function EntryDetail({ entry, onClose, onDelete }: { entry: DiaryRow; onClose: () => void; onDelete: () => void }) {
   const { isPastel } = useTheme();
-  
-  const imageAttachments = entry.attachments.filter(a => a.blob.type.startsWith("image/"));
-  const otherAttachments = entry.attachments.filter(a => !a.blob.type.startsWith("image/"));
-  const allImages = [...entry.images, ...imageAttachments.map(a => a.blob)];
+
+  const imageAttachMeta = entry.attachment_meta.filter(m => m.mime_type.startsWith("image/"));
+  const otherAttachMeta = entry.attachment_meta.filter(m => !m.mime_type.startsWith("image/"));
+  const allImagePaths = [...entry.image_paths, ...imageAttachMeta.map(m => m.path)];
 
   return (
     <div className="glass-panel flex flex-col gap-4 p-5">
@@ -328,6 +367,7 @@ function EntryDetail({ entry, onClose }: { entry: DiaryEntry; onClose: () => voi
             aria-label="Delete entry"
             onClick={async () => {
               await removeEntry(entry.id);
+              onDelete();
               onClose();
             }}
             className="opacity-40 transition-opacity hover:opacity-90"
@@ -342,28 +382,28 @@ function EntryDetail({ entry, onClose }: { entry: DiaryEntry; onClose: () => voi
 
       {entry.text && <p className="whitespace-pre-wrap text-sm">{entry.text}</p>}
 
-      {allImages.length > 0 && (
+      {allImagePaths.length > 0 && (
         <div className="flex flex-wrap gap-2">
-          {allImages.map((b, i) => (
-            <BlobImage
+          {allImagePaths.map((path, i) => (
+            <SignedImage
               key={i}
-              blob={b}
+              path={path}
               className={cn("max-h-64 object-contain", isPastel ? "rounded-2xl" : "rounded-sm")}
             />
           ))}
         </div>
       )}
 
-      {entry.voiceNotes.map((b, i) => (
-        <BlobAudio key={i} blob={b} />
+      {entry.voice_paths.map((path, i) => (
+        <SignedAudio key={i} path={path} />
       ))}
 
-      {otherAttachments.length > 0 && (
+      {otherAttachMeta.length > 0 && (
         <ul className="flex flex-col gap-1">
-          {otherAttachments.map((f, i) => (
+          {otherAttachMeta.map((meta, i) => (
             <li key={i} className="flex items-center gap-2">
               <Paperclip className="h-3 w-3" />
-              <BlobFile file={f} />
+              <SignedFile meta={meta} isPastel={isPastel} />
             </li>
           ))}
         </ul>
@@ -381,27 +421,39 @@ function EntryDetail({ entry, onClose }: { entry: DiaryEntry; onClose: () => voi
     </div>
   );
 }
+
 export function Diary() {
   const { theme, isPastel } = useTheme();
+  const { user } = useAuth();
+  const queryClient = useQueryClient();
   const [composing, setComposing] = useState(false);
-  const [openId, setOpenId] = useState<number | null>(null);
+  const [openId, setOpenId] = useState<string | null>(null);
   const [search, setSearch] = useState("");
-  
-  const entries = useLiveQuery(() => db.diaryEntries.orderBy("timestamp").reverse().toArray(), [], []);
-  const allEntries = entries ?? [];
+
+  const { data: entriesList, isLoading } = useQuery({
+    queryKey: ["diaryEntries"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("diary_entries")
+        .select("*")
+        .order("timestamp", { ascending: false });
+      if (error) throw error;
+      return (data || []) as DiaryRow[];
+    },
+    enabled: !!user,
+  });
+
+  const allEntries = entriesList ?? [];
   const list = allEntries.filter((e) => {
     if (!search.trim()) return true;
     const q = search.toLowerCase();
-    
     if (e.sticker && e.sticker.toLowerCase().includes(q)) return true;
     if (e.tags.some(t => t.toLowerCase().includes(q))) return true;
-    
     const dStr = entryDate(e.timestamp).toLowerCase();
     if (dStr.includes(q)) return true;
-    
     return false;
   });
-  
+
   const open = allEntries.find((e) => e.id === openId) ?? null;
 
   return (
@@ -422,10 +474,10 @@ export function Diary() {
             </span>
           </button>
         </div>
-        
+
         <div className="relative">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-          <input 
+          <input
             type="text"
             placeholder="Search tags, emojis, dates..."
             value={search}
@@ -439,10 +491,27 @@ export function Diary() {
         </div>
       </div>
 
-      {composing && <Composer onDone={() => setComposing(false)} />}
-      {open && <EntryDetail entry={open} onClose={() => setOpenId(null)} />}
+      {composing && (
+        <Composer
+          onDone={() => {
+            setComposing(false);
+            queryClient.invalidateQueries({ queryKey: ["diaryEntries"] });
+          }}
+        />
+      )}
+      {open && (
+        <EntryDetail
+          entry={open}
+          onClose={() => setOpenId(null)}
+          onDelete={() => queryClient.invalidateQueries({ queryKey: ["diaryEntries"] })}
+        />
+      )}
 
-      {list.length === 0 ? (
+      {isLoading ? (
+        <div className="glass-panel flex items-center justify-center p-10">
+          <Loader2 className="h-6 w-6 animate-spin text-primary" />
+        </div>
+      ) : list.length === 0 ? (
         <div className="glass-panel p-5">
           <p className="text-sm text-muted-foreground">
             {theme === "pastel" ? "No pages written yet." : "Log empty. Nothing recorded."}
@@ -461,9 +530,9 @@ export function Diary() {
                 )}
                 style={fieldStyle}
               >
-                {e.images[0] && (
-                  <BlobImage
-                    blob={e.images[0]}
+                {e.image_paths[0] && (
+                  <SignedImage
+                    path={e.image_paths[0]}
                     className={cn("h-10 w-10 shrink-0 object-cover", isPastel ? "rounded-xl" : "rounded-sm")}
                   />
                 )}
@@ -473,7 +542,7 @@ export function Diary() {
                     {e.sticker ? ` · ${e.sticker}` : ""}
                   </p>
                   <p className="truncate text-sm">
-                    {preview(e.text) || (e.voiceNotes.length > 0 ? "Voice note" : "Media only")}
+                    {preview(e.text) || (e.voice_paths.length > 0 ? "Voice note" : "Media only")}
                   </p>
                   {e.tags.length > 0 && (
                     <p className="mt-1 truncate text-[11px] text-muted-foreground">

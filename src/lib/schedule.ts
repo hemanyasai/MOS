@@ -1,13 +1,19 @@
-import {
-  db,
-  type ClassImportance,
-  type ClassItem,
-  type Deadline,
-  type DeadlineImportance,
-  type Holiday,
-  type PendingEvent,
-} from "@/lib/db";
 import { fromISODate, toISODate } from "@/lib/period";
+import { supabase } from "@/lib/supabase";
+import type { 
+  ClassImportance, 
+  ClassItem, 
+  Deadline, 
+  DeadlineImportance, 
+  PendingEvent, 
+  Holiday 
+} from "@/lib/db";
+
+async function getUserId() {
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) throw new Error("Not authenticated");
+  return user.id;
+}
 
 
 export const DAY_NAMES = [
@@ -59,11 +65,21 @@ export async function addClass(input: {
   location: string | null;
   importance: ClassImportance;
 }): Promise<void> {
-  await db.classes.add({ ...input, createdAt: Date.now() } as ClassItem);
+  const user_id = await getUserId();
+  await supabase.from("classes").insert([{
+    user_id,
+    subject: input.subject,
+    day_of_week: input.dayOfWeek,
+    start_time: input.startTime,
+    end_time: input.endTime,
+    location: input.location,
+    importance: input.importance,
+    created_at: Date.now()
+  }]);
 }
 
-export async function removeClass(id: number): Promise<void> {
-  await db.classes.delete(id);
+export async function removeClass(id: string): Promise<void> {
+  await supabase.from("classes").delete().eq("id", id);
 }
 
 export async function addDeadline(input: {
@@ -73,33 +89,45 @@ export async function addDeadline(input: {
   category: string | null;
   importance: DeadlineImportance;
 }): Promise<void> {
-  await db.deadlines.add({ ...input, doneAt: null, createdAt: Date.now() } as Deadline);
+  const user_id = await getUserId();
+  await supabase.from("deadlines").insert([{
+    user_id,
+    title: input.title,
+    due_date: input.dueDate,
+    due_time: input.dueTime,
+    category: input.category,
+    importance: input.importance,
+    done_at: null,
+    created_at: Date.now()
+  }]);
 }
 
-/** Archive out of the active list; history is never deleted. */
-export async function markDeadlineDone(id: number, done = true): Promise<void> {
-  await db.deadlines.update(id, { doneAt: done ? Date.now() : null });
+export async function markDeadlineDone(id: string, done = true): Promise<void> {
+  await supabase.from("deadlines").update({ done_at: done ? Date.now() : null }).eq("id", id);
 }
 
 export async function addPendingEvent(input: { title: string; note: string | null }): Promise<void> {
-  await db.pendingEvents.add({
-    ...input,
+  const user_id = await getUserId();
+  await supabase.from("pending_events").insert([{
+    user_id,
+    title: input.title,
+    note: input.note,
     status: "date unknown",
     date: null,
-    createdAt: Date.now(),
-  } as PendingEvent);
+    created_at: Date.now()
+  }]);
 }
 
-export async function confirmPendingDate(id: number, date: string): Promise<void> {
-  await db.pendingEvents.update(id, { date, status: "date confirmed" });
+export async function confirmPendingDate(id: string, date: string): Promise<void> {
+  await supabase.from("pending_events").update({ date, status: "date confirmed" }).eq("id", id);
 }
 
-export async function unconfirmPendingDate(id: number): Promise<void> {
-  await db.pendingEvents.update(id, { date: null, status: "date unknown" });
+export async function unconfirmPendingDate(id: string): Promise<void> {
+  await supabase.from("pending_events").update({ date: null, status: "date unknown" }).eq("id", id);
 }
 
-export async function removePendingEvent(id: number): Promise<void> {
-  await db.pendingEvents.delete(id);
+export async function removePendingEvent(id: string): Promise<void> {
+  await supabase.from("pending_events").delete().eq("id", id);
 }
 
 export function isOverdue(d: Deadline, todayIso = toISODate()): boolean {
@@ -142,18 +170,24 @@ export function dueLabel(d: Deadline): string {
 export type DayMarker = { kind: "class" | "deadline" | "event" | "holiday"; label: string };
 
 export async function addHoliday(input: { title: string; date: string }): Promise<void> {
-  await db.holidays.add({ ...input, createdAt: Date.now() } as Holiday);
+  const user_id = await getUserId();
+  await supabase.from("holidays").insert([{
+    user_id,
+    title: input.title,
+    date: input.date,
+    created_at: Date.now()
+  }]);
 }
 
 export async function updateHoliday(
-  id: number,
+  id: string,
   patch: Partial<Pick<Holiday, "title" | "date">>,
 ): Promise<void> {
-  await db.holidays.update(id, patch);
+  await supabase.from("holidays").update(patch).eq("id", id);
 }
 
-export async function removeHoliday(id: number): Promise<void> {
-  await db.holidays.delete(id);
+export async function removeHoliday(id: string): Promise<void> {
+  await supabase.from("holidays").delete().eq("id", id);
 }
 
 /** All markers for a given ISO date, used by the Almanac dots. */

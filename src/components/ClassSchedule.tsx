@@ -1,7 +1,7 @@
-import { useLiveQuery } from "dexie-react-hooks";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 import { Plus, Trash2 } from "lucide-react";
-import { db, type ClassImportance } from "@/lib/db";
+import { type ClassImportance, type ClassItem } from "@/lib/db";
 import {
   CLASS_IMPORTANCE,
   DAY_NAMES,
@@ -15,6 +15,8 @@ import {
 } from "@/lib/schedule";
 import { useTheme } from "@/lib/theme";
 import { cn } from "@/lib/utils";
+import { supabase } from "@/lib/supabase";
+import { useAuth } from "@/lib/auth";
 
 const fieldStyle = { borderColor: "var(--glass-border)", background: "var(--glass)" };
 
@@ -28,6 +30,7 @@ function input(isPastel: boolean) {
 
 function AddClassForm({ onDone }: { onDone: () => void }) {
   const { isPastel } = useTheme();
+  const queryClient = useQueryClient();
   const [subject, setSubject] = useState("");
   const [dayOfWeek, setDayOfWeek] = useState(new Date().getDay());
   const [startTime, setStartTime] = useState("09:00");
@@ -127,6 +130,7 @@ function AddClassForm({ onDone }: { onDone: () => void }) {
               location: location.trim() || null,
               importance,
             });
+            await queryClient.invalidateQueries({ queryKey: ["classes"] });
             onDone();
           }}
         >
@@ -149,7 +153,7 @@ function ClassRow({
   importance,
   showDay,
 }: {
-  id: number;
+  id: string;
   subject: string;
   startTime: string;
   endTime: string;
@@ -158,6 +162,7 @@ function ClassRow({
   showDay?: string;
 }) {
   const { isPastel } = useTheme();
+  const queryClient = useQueryClient();
   return (
     <li
       className={cn("flex items-center gap-3 border p-3", isPastel ? "rounded-2xl" : "rounded-sm")}
@@ -186,7 +191,10 @@ function ClassRow({
       <button
         type="button"
         aria-label={`Remove ${subject}`}
-        onClick={() => removeClass(id)}
+        onClick={async () => {
+          await removeClass(id);
+          await queryClient.invalidateQueries({ queryKey: ["classes"] });
+        }}
         className="shrink-0 opacity-40 transition-opacity hover:opacity-90"
       >
         <Trash2 className="h-4 w-4" />
@@ -197,9 +205,29 @@ function ClassRow({
 
 export function ClassSchedule() {
   const { theme, isPastel } = useTheme();
+  const { user } = useAuth();
   const [adding, setAdding] = useState(false);
-  const classes = useLiveQuery(() => db.classes.toArray(), [], []);
-  const all = classes ?? [];
+
+  const { data: classesList } = useQuery({
+    queryKey: ["classes"],
+    queryFn: async () => {
+      const { data, error } = await supabase.from("classes").select("*");
+      if (error) throw error;
+      return (data || []).map((row) => ({
+        id: row.id,
+        subject: row.subject,
+        dayOfWeek: row.day_of_week,
+        startTime: row.start_time,
+        endTime: row.end_time,
+        location: row.location,
+        importance: row.importance as ClassImportance,
+        createdAt: row.created_at,
+      })) as ClassItem[];
+    },
+    enabled: !!user,
+  });
+
+  const all = classesList ?? [];
   const today = todaysClasses(all);
 
   return (
@@ -233,7 +261,7 @@ export function ClassSchedule() {
         ) : (
           <ul className="flex flex-col gap-2">
             {today.map((c) => (
-              <ClassRow key={c.id} {...c} />
+              <ClassRow key={c.id} {...c} id={String(c.id)} />
             ))}
           </ul>
         )}
@@ -253,7 +281,7 @@ export function ClassSchedule() {
                   <p className="text-[11px] uppercase tracking-[0.22em] text-muted-foreground">{day}</p>
                   <ul className="flex flex-col gap-2">
                     {list.map((c) => (
-                      <ClassRow key={c.id} {...c} />
+                      <ClassRow key={c.id} {...c} id={String(c.id)} />
                     ))}
                   </ul>
                 </div>

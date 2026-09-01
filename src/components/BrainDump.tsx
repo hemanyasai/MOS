@@ -1,7 +1,8 @@
-import { useLiveQuery } from "dexie-react-hooks";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 import { Trash2, PawPrint } from "lucide-react";
-import { db } from "@/lib/db";
+import { supabase } from "@/lib/supabase";
+import { useAuth } from "@/lib/auth";
 import { usePersonalityEmptyState } from "@/hooks/use-personality";
 import { useTheme } from "@/lib/theme";
 import { cn } from "@/lib/utils";
@@ -24,15 +25,48 @@ const TILTS = ["-0.8deg", "0.6deg", "-0.4deg", "1deg", "0.3deg"];
 export function BrainDump() {
   const { theme, isPastel } = useTheme();
   const [text, setText] = useState("");
-  const notes = useLiveQuery(() => db.notes.orderBy("createdAt").reverse().toArray(), [], []);
-  const emptyLine = usePersonalityEmptyState();
+  const { user } = useAuth();
+  const queryClient = useQueryClient();
+
+  const { data: notes } = useQuery({
+    queryKey: ["notes"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("notes")
+        .select("*")
+        .order("created_at", { ascending: false });
+      if (error) throw error;
+      return data;
+    },
+    enabled: !!user,
+  });
+
+  const addMutation = useMutation({
+    mutationFn: async (body: string) => {
+      if (!user) return;
+      const { error } = await supabase.from("notes").insert([
+        { user_id: user.id, body, created_at: Date.now() }
+      ]);
+      if (error) throw error;
+    },
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["notes"] }),
+  });
+
+  const deleteMutation = useMutation({
+    mutationFn: async (id: string) => {
+      const { error } = await supabase.from("notes").delete().eq("id", id);
+      if (error) throw error;
+    },
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["notes"] }),
+  });
+
   const list = notes ?? [];
 
   const add = async () => {
     const body = text.trim();
     if (!body) return;
     setText("");
-    await db.notes.add({ body, createdAt: Date.now() } as never);
+    await addMutation.mutateAsync(body);
   };
 
   return (
@@ -70,7 +104,7 @@ export function BrainDump() {
       {list.length === 0 ? (
         <div className="glass-panel grid min-h-[30vh] place-items-center p-10 text-center">
           <p className="text-display text-lg">
-            {emptyLine ?? (isPastel ? "Nothing here yet" : "No signal here yet")}
+            {isPastel ? "Nothing here yet" : "No signal here yet"}
           </p>
         </div>
       ) : (
@@ -94,14 +128,14 @@ export function BrainDump() {
                     !isPastel && "font-mono tracking-normal",
                   )}
                 >
-                  {stamp(n.createdAt)}
+                  {stamp(n.created_at)}
                 </p>
                 <p className={cn("mt-1 break-words text-sm", !isPastel && "font-mono")}>{n.body}</p>
               </div>
               <button
                 type="button"
                 aria-label="Delete note"
-                onClick={() => db.notes.delete(n.id)}
+                onClick={() => deleteMutation.mutate(n.id)}
                 className="shrink-0 opacity-40 transition-opacity hover:opacity-90"
               >
                 {isPastel ? <PawPrint className="h-4 w-4" /> : <Trash2 className="h-4 w-4" />}
