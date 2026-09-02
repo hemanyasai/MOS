@@ -332,6 +332,8 @@ function Composer({ onDone }: { onDone: () => void }) {
             try {
               await addEntry({ text: text.trim(), images, voiceNotes, attachments, tags, sticker });
               onDone();
+            } catch (err: any) {
+              alert(err.message || "Failed to save entry.");
             } finally {
               setSaving(false);
             }

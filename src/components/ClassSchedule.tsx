@@ -122,16 +122,20 @@ function AddClassForm({ onDone }: { onDone: () => void }) {
           style={{ borderColor: "var(--primary)", background: "var(--glass)", color: "var(--primary)" }}
           onClick={async () => {
             if (!subject.trim()) return;
-            await addClass({
-              subject: subject.trim(),
-              dayOfWeek,
-              startTime,
-              endTime,
-              location: location.trim() || null,
-              importance,
-            });
-            await queryClient.invalidateQueries({ queryKey: ["classes"] });
-            onDone();
+            try {
+              await addClass({
+                subject: subject.trim(),
+                dayOfWeek,
+                startTime,
+                endTime,
+                location: location.trim() || null,
+                importance,
+              });
+              await queryClient.invalidateQueries({ queryKey: ["classes"] });
+              onDone();
+            } catch (err: any) {
+              alert(err.message || "Failed to add class.");
+            }
           }}
         >
           Add class
@@ -192,8 +196,12 @@ function ClassRow({
         type="button"
         aria-label={`Remove ${subject}`}
         onClick={async () => {
-          await removeClass(id);
-          await queryClient.invalidateQueries({ queryKey: ["classes"] });
+          try {
+            await removeClass(id);
+            await queryClient.invalidateQueries({ queryKey: ["classes"] });
+          } catch (err: any) {
+            alert(err.message || "Failed to remove class.");
+          }
         }}
         className="shrink-0 opacity-40 transition-opacity hover:opacity-90"
       >

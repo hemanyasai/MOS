@@ -85,7 +85,7 @@ function NavItems({ orientation }: { orientation: "sidebar" | "bar" }) {
               isPastel ? "rounded-2xl" : "rounded-sm",
               orientation === "sidebar"
                 ? "px-3 py-2.5 text-sm"
-                : "min-w-0 flex-1 flex-col gap-1 px-1 py-2 text-[10px]",
+                : "min-w-0 flex-1 flex-col justify-center items-center gap-1 px-1 py-1.5 text-[10px]",
               "text-muted-foreground hover:text-foreground",
             )}
             activeProps={{
@@ -97,7 +97,7 @@ function NavItems({ orientation }: { orientation: "sidebar" | "bar" }) {
             }}
           >
             <Icon className="h-[18px] w-[18px] shrink-0" style={{ color: "var(--primary)" }} />
-            <span className="truncate">{m.names[theme]}</span>
+            <span className="block w-full truncate text-center">{m.names[theme]}</span>
           </Link>
         );
       })}

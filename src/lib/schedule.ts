@@ -79,7 +79,7 @@ export async function addClass(input: {
 }
 
 export async function removeClass(id: string): Promise<void> {
-  await supabase.from("classes").delete().eq("id", id);
+  const { error } = await supabase.from("classes").delete().eq("id", id);`n  if (error) throw error;
 }
 
 export async function addDeadline(input: {
@@ -103,7 +103,7 @@ export async function addDeadline(input: {
 }
 
 export async function markDeadlineDone(id: string, done = true): Promise<void> {
-  await supabase.from("deadlines").update({ done_at: done ? Date.now() : null }).eq("id", id);
+  const { error } = await supabase.from("deadlines").update({ done_at: done ? Date.now() : null }).eq("id", id);`n  if (error) throw error;
 }
 
 export async function addPendingEvent(input: { title: string; note: string | null }): Promise<void> {
@@ -119,15 +119,15 @@ export async function addPendingEvent(input: { title: string; note: string | nul
 }
 
 export async function confirmPendingDate(id: string, date: string): Promise<void> {
-  await supabase.from("pending_events").update({ date, status: "date confirmed" }).eq("id", id);
+  const { error } = await supabase.from("pending_events").update({ date, status: "date confirmed" }).eq("id", id);`n  if (error) throw error;
 }
 
 export async function unconfirmPendingDate(id: string): Promise<void> {
-  await supabase.from("pending_events").update({ date: null, status: "date unknown" }).eq("id", id);
+  const { error } = await supabase.from("pending_events").update({ date: null, status: "date unknown" }).eq("id", id);`n  if (error) throw error;
 }
 
 export async function removePendingEvent(id: string): Promise<void> {
-  await supabase.from("pending_events").delete().eq("id", id);
+  const { error } = await supabase.from("pending_events").delete().eq("id", id);`n  if (error) throw error;
 }
 
 export function isOverdue(d: Deadline, todayIso = toISODate()): boolean {
@@ -183,11 +183,11 @@ export async function updateHoliday(
   id: string,
   patch: Partial<Pick<Holiday, "title" | "date">>,
 ): Promise<void> {
-  await supabase.from("holidays").update(patch).eq("id", id);
+  const { error } = await supabase.from("holidays").update(patch).eq("id", id);`n  if (error) throw error;
 }
 
 export async function removeHoliday(id: string): Promise<void> {
-  await supabase.from("holidays").delete().eq("id", id);
+  const { error } = await supabase.from("holidays").delete().eq("id", id);`n  if (error) throw error;
 }
 
 /** All markers for a given ISO date, used by the Almanac dots. */
@@ -214,4 +214,5 @@ export function markersForDate(
   }
   return out;
 }
+
 

@@ -82,7 +82,7 @@ export async function addEntry(input: {
     })
   );
 
-  await supabase.from("diary_entries").insert([{
+  const { error } = await supabase.from("diary_entries").insert([{
     user_id: user.id,
     timestamp: ts,
     text: input.text,
@@ -92,11 +92,13 @@ export async function addEntry(input: {
     tags: input.tags,
     sticker: input.sticker,
   }]);
+  if (error) throw error;
 }
 
 export async function removeEntry(id: string): Promise<void> {
   // Delete the row — storage files are left (orphan cleanup can be done separately)
-  await supabase.from("diary_entries").delete().eq("id", id);
+  const { error } = await supabase.from("diary_entries").delete().eq("id", id);
+  if (error) throw error;
 }
 
 /** Wipe every JB entry and the stored PIN hash. */
